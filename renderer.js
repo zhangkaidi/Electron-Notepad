@@ -4,43 +4,11 @@
 const { ipcRenderer: ipc, remote } = require('electron')
 const fs = require('fs');
 
-let currentFile = null; //当前文档保存的路径
+let editor = document.getElementById('txtEditor');
+document.title = "无标题 - 记事本";
+
 ipc.on('operation', function (event, arg) {
     switch (arg) {
-        case 'new':
-            currentFile = null;
-            document.getElementById('txtEditor').value = "";
-            document.title = "Notepad - Untitled";
-            break;
-        case 'open':
-            const files = remote.dialog.showOpenDialog(remote.getCurrentWindow(), {
-                filters: [
-                    { name: "Text Files", extensions: ['txt', 'js', 'html', 'md'] },
-                    { name: 'All Files', extensions: ['*'] }],
-                properties: ['openFile']
-            });
-            if (files) {
-                currentFile = files[0];
-                const txtRead = readText(currentFile);
-                txtEditor.value = txtRead;
-                document.title = "Notepad - " + currentFile;
-            }
-            break;
-        case 'save':
-            if (!currentFile) {
-                const file = remote.dialog.showSaveDialog(remote.getCurrentWindow(), {
-                    filters: [
-                        { name: "Text Files", extensions: ['txt', 'js', 'html', 'md'] },
-                        { name: 'All Files', extensions: ['*'] }]
-                });
-                if (file) currentFile = file;
-            }
-            if (currentFile) {
-                var value = document.getElementById('txtEditor').value;
-                writeText(value, currentFile);
-                document.title = "Notepad - " + currentFile;
-            }
-            break;
         case 'del':
             document.getElementById('txtEditor').value = ""
             break;
@@ -50,10 +18,33 @@ ipc.on('operation', function (event, arg) {
     }
 });
 
+//新建
+ipc.on('new-file', function (event, arg) {
+    editor.value = "";
+    document.title = "无标题 - 记事本";
+})
+
+//打开
+ipc.on('open-file', function (event, path) {
+    const text = readText(path);
+    editor.value = text;
+    document.title = "记事本 - " + path;
+})
+
+//保存
+ipc.on('saved-file', function (event, path) {
+    writeText(path, editor.value);
+    document.title = "记事本 - " + path;
+})
+
+
+
 //读取文本文件
 function readText(file) {
-    return fs.readFileSync(file, 'utf8');
+    return fs.readFileSync(file, 'utf-8');
 }
-function writeText(text, file) {
+
+//写文本文件
+function writeText(file, text) {
     return fs.writeFileSync(file, text);
 }

@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, dialog, Menu } = require('electron');
 
-// const { appMenuTemplate } = require('./menu1');
+require('electron-reload')(__dirname); //热加载页面
+
 let appMenuTemplate = [
     {
         label: '文件(F)',
@@ -9,19 +10,19 @@ let appMenuTemplate = [
                 label: '新建(N)',
                 accelerator: 'CommandOrControl+N',
                 click: () => {
-                    win.webContents.send('operation', 'new')
+                    newFile();
                 }
             }, {
                 label: '打开(O)...',
                 accelerator: 'Shift+CmdOrCtrl+N',
                 click: () => {
-                    win.webContents.send('operation', 'open')
+                    openFile()
                 }
             }, {
                 label: '保存(S)',
                 accelerator: 'CmdOrCtrl+S',
                 click: () => {
-                    win.webContents.send('operation', 'save')
+                    saveFile();
                 }
             }, {
                 label: '另存为(A)...',
@@ -156,70 +157,74 @@ function createWindow() {
         skipTaskbar: false,
         title: "hello",
         autoHideMenuBar: false,
-        opacity:.9,
+        opacity: .9,
         defaultFontSize: 20
     })
 
     win.loadFile('index.html')
-
+    win.once('ready-to-show', () => {
+        win.show()
+    })
     win.on('closed', () => {
         // 取消引用 window 对象，如果你的应用支持多窗口的话，
         // 通常会把多个 window 对象存放在一个数组里面，
         // 与此同时，你应该删除相应的元素。
         win = null
     })
-    win.once('ready-to-show', () => {
-        win.show()
+    win.on('close', (event) => {
+        //注意：这里要选阻止默认关闭事件,再加入自定义事件，否则依然会关闭。
+        event.preventDefault();
+        askFile();
     })
-
     const menu = Menu.buildFromTemplate(appMenuTemplate)
     Menu.setApplicationMenu(menu)
 }
 
 app.on('ready', createWindow)
 
+//主进程主动发送消息给渲染进行使用 --> win.webContents.send('与渲染进程一致', '参数')
 
+//新建
+function newFile(){
+    win.webContents.send('new-file','new')
+}
 
+//打开
+function openFile() {
+    const options = {
+        filters: [
+            { name: "Text Files", extensions: ['txt', 'js', 'html', 'md'] },
+            { name: 'All Files', extensions: ['*'] }],
+        properties: ['openFile']
+    }
+    dialog.showOpenDialog(options, function (filename) {
+        //注意：这里filename 是个数组
+        win.webContents.send('open-file', filename[0])
+    })
+}
 
+//保存
+function saveFile() {
+    const options = {
+        filters: [
+            { name: "Text Files", extensions: ['txt', 'js', 'html', 'md'] },
+            { name: 'All Files', extensions: ['*'] }]
+    }
+    dialog.showSaveDialog(options, function (filename) {
+        win.webContents.send('saved-file', filename)
+    })
+}
 
-ipcMain.on('operation', function (event, arg) {
-    event.returnValue = 'remove';
-});
-
-
-
-
-
-// ipcMain.on('asynchronous-message', function (event, arg) {
-//     console.log(arg);  // prints "ping"
-//     event.sender.send('asynchronous-reply', 'pong');
-// });
-
-
-// ipc.on('open-error-dialog', function (event) {
-//     dialog.showErrorBox('一条错误信息', '错误消息演示.')
-// })
-
-// ipc.on('open-information-dialog', function (event) {
-//     const options = {
-//         type: 'info',
-//         title: '信息',
-//         message: "这是一个信息对话框. 很不错吧？",
-//         buttons: ['是', '否']
-//     }
-//     dialog.showMessageBox(options, function (index) {
-//         event.sender.send('information-dialog-selection', index)
-//     })
-// })
-
-// ipc.on('save-dialog', function (event) {
-//     const options = {
-//         title: '保存图片',
-//         filters: [
-//             { name: 'Images', extensions: ['jpg', 'png', 'gif'] }
-//         ]
-//     }
-//     dialog.showSaveDialog(options, function (filename) {
-//         event.sender.send('saved-file', filename)
-//     })
-// })
+//dialog
+function askFile() {
+    const options = {
+        type: 'question',
+        title: '记事本',
+        message: "是否保存？",
+        buttons: ['是', '否']
+    }
+    dialog.showMessageBox(options, function (index) {
+        //注意：这里index返回值有两个 index = 0 为 是,index = 1 为否
+        if (index == 0) saveDiag();
+    })
+}
