@@ -1,11 +1,16 @@
 // This file is required by the index.html file and will
 // be executed in the renderer process for that window.
 // All of the Node.js APIs are available in this process. var alertOnlineStatus = function() {
-const { ipcRenderer: ipc, remote } = require('electron')
+const { ipcRenderer: ipc } = require('electron')
 const fs = require('fs');
 
 let editor = document.getElementById('txtEditor');
 document.title = "无标题 - 记事本";
+
+
+txtEditor.oninput = (e) => {
+    ipc.send('isSaved', 'false');
+};
 
 ipc.on('operation', function (event, arg) {
     switch (arg) {
@@ -38,7 +43,6 @@ ipc.on('saved-file', function (event, path) {
 })
 
 
-
 //读取文本文件
 function readText(file) {
     return fs.readFileSync(file, 'utf-8');
@@ -46,5 +50,5 @@ function readText(file) {
 
 //写文本文件
 function writeText(file, text) {
-    return fs.writeFileSync(file, text);
+    fs.writeFileSync(file, text);
 }

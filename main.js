@@ -1,7 +1,11 @@
-const { app, BrowserWindow, dialog, Menu } = require('electron');
-
 require('electron-reload')(__dirname); //热加载页面
+// require('electron-debug')();
+const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
 
+let filePath = null;
+let isSaved = false;
+let win;
+let safeExit = true;
 let appMenuTemplate = [
     {
         label: '文件(F)',
@@ -147,7 +151,7 @@ let appMenuTemplate = [
         ]
     }
 ]
-let win;
+
 function createWindow() {
     win = new BrowserWindow({
         width: 800,
@@ -160,8 +164,7 @@ function createWindow() {
         opacity: .9,
         defaultFontSize: 20
     })
-
-    win.loadFile('index.html')
+    win.loadURL(`file://${__dirname}/index.html`);
     win.once('ready-to-show', () => {
         win.show()
     })
@@ -172,21 +175,34 @@ function createWindow() {
         win = null
     })
     win.on('close', (event) => {
-        //注意：这里要选阻止默认关闭事件,再加入自定义事件，否则依然会关闭。
-        event.preventDefault();
-        askFile();
+        if (safeExit) {
+            //注：这里要选阻止默认关闭事件,再加入自定义事件，否则依然会关闭。
+            event.preventDefault();
+            askFile();
+        }
     })
+
     const menu = Menu.buildFromTemplate(appMenuTemplate)
     Menu.setApplicationMenu(menu)
+
 }
 
 app.on('ready', createWindow)
 
-//主进程主动发送消息给渲染进行使用 --> win.webContents.send('与渲染进程一致', '参数')
+ipcMain.on('isSaved', function (event, arg) {
+    if (arg == "false") {
+        isSaved = false;
+    }
+});
+
+//注：主进程主动发送消息给渲染进行使用 --> win.webContents.send('与渲染进程一致', '参数')
 
 //新建
-function newFile(){
-    win.webContents.send('new-file','new')
+function newFile() {
+    askFile();
+    filePath = null;
+    win.webContents.send('new-file', 'new')
+    isSaved = true;
 }
 
 //打开
@@ -198,33 +214,56 @@ function openFile() {
         properties: ['openFile']
     }
     dialog.showOpenDialog(options, function (filename) {
-        //注意：这里filename 是个数组
+        //注：这里filename 是个数组
         win.webContents.send('open-file', filename[0])
+        filePath = filename[0];
+        isSaved = true;
     })
 }
 
 //保存
 function saveFile() {
-    const options = {
-        filters: [
-            { name: "Text Files", extensions: ['txt', 'js', 'html', 'md'] },
-            { name: 'All Files', extensions: ['*'] }]
+    if (filePath) {
+        win.webContents.send('saved-file', filePath)
+        isSaved = true;
+    } else {
+        const options = {
+            filters: [
+                { name: "Text Files", extensions: ['txt', 'js', 'html', 'md'] },
+                { name: 'All Files', extensions: ['*'] }
+            ],
+            properties: ['openFile']
+        }
+        dialog.showSaveDialog(options, function (filename) {
+            filePath = filename;
+            win.webContents.send('saved-file', filePath)
+            isSaved = true;
+        })
     }
-    dialog.showSaveDialog(options, function (filename) {
-        win.webContents.send('saved-file', filename)
-    })
+
 }
 
 //dialog
 function askFile() {
+    if (isSaved) {
+        safeExit =false;
+        app.quit();
+        return;
+    }
     const options = {
         type: 'question',
         title: '记事本',
         message: "是否保存？",
-        buttons: ['是', '否']
+        buttons: ['保存', '不保存', '取消'],
+        cancelId: 2 //注：关闭键绑定为button的事件
     }
     dialog.showMessageBox(options, function (index) {
-        //注意：这里index返回值有两个 index = 0 为 是,index = 1 为否
-        if (index == 0) saveDiag();
+        //注：这里index返回值与buttons索引值相同
+        if (index == 0) {
+            saveFile();
+        } else if (index == 1) {
+            safeExit =false;
+            app.quit();
+        }
     })
 }
