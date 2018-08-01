@@ -8,6 +8,7 @@ let filePath = null; //默认路径
 let isSaved = true; //保存
 let win;
 let safeExit = true;//退出
+let newOpen = false;//打开文件后，新建不保存
 const menu = new Menu();
 
 //应用菜单
@@ -217,6 +218,7 @@ app.on('activate', () => {
 ipcMain.on('rendO', function (event, arg) {
     if (arg == "false") {
         isSaved = false;
+        newOpen = false;
     }
 });
 
@@ -248,6 +250,7 @@ function newFile() {
         win.webContents.send('new-file')
         isSaved = true;
     } else {
+        newOpen = true;
         askFile();
     }
 }
@@ -305,8 +308,14 @@ function askFile() {
         if (index == 0) {
             saveFile();
         } else if (index == 1) {
-            safeExit = false;
-            app.quit();
+            if(newOpen){
+                filePath = null;
+                win.webContents.send('new-file')
+                isSaved = true;
+            }else{
+                safeExit = false;
+                app.quit();
+            }
         }
     })
 }
