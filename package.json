@@ -1,11 +1,11 @@
 {
-  "name": "electron-quick-start",
+  "name": "electron-notepad",
   "version": "1.0.0",
-  "description": "A minimal Electron application",
+  "description": "electron-notepad",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "packager": "electron-packager ./ electron-notepad --platform=win32 --arch=x64"
+    "packager": "electron-packager ./ electron-notepad --platform=win32 --arch=x64 --overwrite"
   },
   "repository": "https://github.com/electron/electron-quick-start",
   "keywords": [
@@ -15,7 +15,7 @@
     "tutorial",
     "demo"
   ],
-  "author": "GitHub",
+  "author": "cady",
   "license": "CC0-1.0",
   "devDependencies": {
     "electron": "^2.0.0",

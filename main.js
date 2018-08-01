@@ -1,12 +1,17 @@
-require('electron-reload')(__dirname); //热加载页面
+// require('electron-reload')(__dirname); //热加载页面
 // require('electron-debug')();
-const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
 
-let filePath = null;
-let isSaved = false;
+const path = require('path')
+const { app, BrowserWindow, dialog, ipcMain, Menu, MenuItem, Tray } = require('electron');
+
+let filePath = null; //默认路径
+let isSaved = true; //保存
 let win;
-let safeExit = true;
-let appMenuTemplate = [
+let safeExit = true;//退出
+const menu = new Menu();
+
+//应用菜单
+const appMenuTemplate = [
     {
         label: '文件(F)',
         submenu: [
@@ -29,17 +34,13 @@ let appMenuTemplate = [
                     saveFile();
                 }
             }, {
-                label: '另存为(A)...',
-                role: 'save'
-            }, {
                 type: 'separator'
-            }, {
-                label: '页面设置(U)...',
-                role: ''
             }, {
                 label: '打印(P)',
                 accelerator: 'CmdOrCtrl+P',
-                role: ''
+                click:()=>{
+                    console.log(win.webContents.getPrinters()) //获取打印机信息
+                }
             }, {
                 type: 'separator'
             }, {
@@ -151,7 +152,16 @@ let appMenuTemplate = [
         ]
     }
 ]
-
+//系统托盘右键菜单
+const trayMenuTemplate = [
+    {
+        label: '退出',
+        click: () => {
+            safeExit = false;
+            app.quit();
+        }
+    }
+];
 function createWindow() {
     win = new BrowserWindow({
         width: 800,
@@ -181,30 +191,62 @@ function createWindow() {
             askFile();
         }
     })
+    app.on('window-all-closed', function () {
+        // On OS X it is common for applications and their menu bar
+        // to stay active until the user quits explicitly with Cmd + Q
+        if (process.platform !== 'darwin') {
+            app.quit()
+        }
+    })
 
+    //图标的上下文菜单
+    trayIcon = path.join(__dirname, 'tray');
+    appTray = new Tray(path.join(trayIcon, 'app.ico'));
+    const contextMenu = Menu.buildFromTemplate(trayMenuTemplate);
+    appTray.setToolTip('electron-notepad');
+    appTray.setContextMenu(contextMenu);
+    appTray.on('double-click',()=>{
+        win.show();
+    })
+
+    //创建菜单栏
     const menu = Menu.buildFromTemplate(appMenuTemplate)
     Menu.setApplicationMenu(menu)
 
 }
-
+//初始化
 app.on('ready', createWindow)
 
-ipcMain.on('isSaved', function (event, arg) {
+//接收渲染进程event
+ipcMain.on('rendO', function (event, arg) {
     if (arg == "false") {
         isSaved = false;
     }
 });
 
-//注：主进程主动发送消息给渲染进行使用 --> win.webContents.send('与渲染进程一致', '参数')
+//右击菜单
+menu.append(new MenuItem(
+    {
+        label: "撤销",
+        role:"undo"
+    }
+))
+ipcMain.on('show-context-menu', function (event) {
+    menu.popup(win)
+})
 
+
+//注：主进程主动发送消息给渲染进行使用 --> win.webContents.send('与渲染进程一致', '参数')
 //新建
 function newFile() {
-    askFile();
-    filePath = null;
-    win.webContents.send('new-file', 'new')
-    isSaved = true;
+    if(isSaved){
+        filePath = null;
+        win.webContents.send('new-file')
+        isSaved = true;
+    }else{
+        askFile();
+    }
 }
-
 //打开
 function openFile() {
     const options = {
@@ -220,7 +262,6 @@ function openFile() {
         isSaved = true;
     })
 }
-
 //保存
 function saveFile() {
     if (filePath) {
@@ -240,13 +281,11 @@ function saveFile() {
             isSaved = true;
         })
     }
-
 }
-
 //dialog
 function askFile() {
     if (isSaved) {
-        safeExit =false;
+        safeExit = false;
         app.quit();
         return;
     }
@@ -262,7 +301,7 @@ function askFile() {
         if (index == 0) {
             saveFile();
         } else if (index == 1) {
-            safeExit =false;
+            safeExit = false;
             app.quit();
         }
     })
