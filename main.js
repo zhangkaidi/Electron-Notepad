@@ -38,7 +38,7 @@ const appMenuTemplate = [
             }, {
                 label: '打印(P)',
                 accelerator: 'CmdOrCtrl+P',
-                click:()=>{
+                click: () => {
                     console.log(win.webContents.getPrinters()) //获取打印机信息
                 }
             }, {
@@ -120,14 +120,6 @@ const appMenuTemplate = [
         ]
     },
     {
-        label: '查看(V)',
-        submenu: [
-            {
-                label: '状态栏(S)',
-            }
-        ]
-    },
-    {
         label: '工具(G)',
         submenu: [
             {
@@ -143,11 +135,10 @@ const appMenuTemplate = [
         label: '帮助(H)',
         submenu: [
             {
-                label: '查看帮助(H)',
-            }, {
-                type: 'separator'
-            }, {
                 label: '关于记事本(A)',
+                click: () => {
+                    about();
+                }
             }
         ]
     }
@@ -166,12 +157,12 @@ function createWindow() {
     win = new BrowserWindow({
         width: 800,
         height: 600,
-        backgroundColor: '#1e1e1e',
+        icon: "./tray/app.ico",
         show: false,
         skipTaskbar: false,
         title: "hello",
         autoHideMenuBar: false,
-        opacity: .9,
+        opacity: 1,
         defaultFontSize: 20
     })
     win.loadURL(`file://${__dirname}/index.html`);
@@ -191,32 +182,37 @@ function createWindow() {
             askFile();
         }
     })
-    app.on('window-all-closed', function () {
-        // On OS X it is common for applications and their menu bar
-        // to stay active until the user quits explicitly with Cmd + Q
-        if (process.platform !== 'darwin') {
-            app.quit()
-        }
-    })
-
+    
     //图标的上下文菜单
     trayIcon = path.join(__dirname, 'tray');
     appTray = new Tray(path.join(trayIcon, 'app.ico'));
     const contextMenu = Menu.buildFromTemplate(trayMenuTemplate);
     appTray.setToolTip('electron-notepad');
     appTray.setContextMenu(contextMenu);
-    appTray.on('double-click',()=>{
+    appTray.on('double-click', () => {
         win.show();
     })
 
     //创建菜单栏
     const menu = Menu.buildFromTemplate(appMenuTemplate)
     Menu.setApplicationMenu(menu)
-
 }
+
 //初始化
 app.on('ready', createWindow)
-
+//监听app窗口关闭状态
+app.on('window-all-closed', () => {
+    //mac osx中只有执行command+Q才会退出app，否则保持活动状态
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
+});
+app.on('activate', () => {
+    //mac osx中再dock图标点击时重新创建一个窗口
+    if (mainWindow === null) {
+        createWindow();
+    }
+});
 //接收渲染进程event
 ipcMain.on('rendO', function (event, arg) {
     if (arg == "false") {
@@ -225,25 +221,33 @@ ipcMain.on('rendO', function (event, arg) {
 });
 
 //右击菜单
-menu.append(new MenuItem(
-    {
-        label: "撤销",
-        role:"undo"
-    }
-))
+menu.append(new MenuItem({ label: "撤销", role: "undo" }))
+menu.append(new MenuItem({ type: 'separator' }))
+menu.append(new MenuItem({ label: '剪切', role: 'cut' }))
+menu.append(new MenuItem({ label: '复制', role: 'copy' }))
+menu.append(new MenuItem({ label: '粘贴', role: 'paste' }))
 ipcMain.on('show-context-menu', function (event) {
     menu.popup(win)
 })
 
 
 //注：主进程主动发送消息给渲染进行使用 --> win.webContents.send('与渲染进程一致', '参数')
+
+//关于记事本
+function about() {
+    let about = new BrowserWindow({ width: 400, height: 300, icon: "./tray/app.ico", skipTaskbar: true, autoHideMenuBar: true, parent: win, modal: true, show: false })
+    about.loadURL(`file://${__dirname}/about.html`);
+    about.once('ready-to-show', () => {
+        about.show()
+    })
+}
 //新建
 function newFile() {
-    if(isSaved){
+    if (isSaved) {
         filePath = null;
         win.webContents.send('new-file')
         isSaved = true;
-    }else{
+    } else {
         askFile();
     }
 }
@@ -306,3 +310,7 @@ function askFile() {
         }
     })
 }
+//open-file 当文件拖拽到图标上时触发
+app.on('open-file', (e, path) => {
+    win.webContents.send('open-file', path)
+});
