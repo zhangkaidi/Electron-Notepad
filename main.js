@@ -1,10 +1,11 @@
-// require('electron-reload')(__dirname); //热加载页面
+// require('electron-reload')(__dirname); //热加载页面,打包不需要
 // require('electron-debug')();
 
 const path = require('path')
 const { app, BrowserWindow, dialog, ipcMain, Menu, MenuItem, Tray } = require('electron');
 
-let filePath = null; //默认路径
+let filePath; //默认路径
+let newFilePath;
 let isSaved = true; //保存
 let win;
 let safeExit = true;//退出
@@ -115,6 +116,8 @@ const appMenuTemplate = [
         submenu: [
             {
                 label: '自动换行(W)',
+                type: 'checkbox',
+                checked: true
             }, {
                 label: '字体(F)...',
             }
@@ -183,7 +186,6 @@ function createWindow() {
             askFile();
         }
     })
-    
     //图标的上下文菜单
     trayIcon = path.join(__dirname, 'tray');
     appTray = new Tray(path.join(trayIcon, 'app.ico'));
@@ -193,7 +195,6 @@ function createWindow() {
     appTray.on('double-click', () => {
         win.show();
     })
-
     //创建菜单栏
     const menu = Menu.buildFromTemplate(appMenuTemplate)
     Menu.setApplicationMenu(menu)
@@ -214,13 +215,11 @@ app.on('activate', () => {
         createWindow();
     }
 });
-//接收渲染进程event
-ipcMain.on('rendO', function (event, arg) {
-    if (arg == "false") {
-        isSaved = false;
-        newOpen = false;
-    }
+//open-file 当文件拖拽到图标上时触发
+app.on('open-file', (e, path) => {
+    win.webContents.send('open-file', path)
 });
+
 
 //右击菜单
 menu.append(new MenuItem({ label: "撤销", role: "undo" }))
@@ -270,9 +269,12 @@ function openFile() {
     })
 }
 //保存
-function saveFile() {
+function saveFile(params) {
     if (filePath) {
         win.webContents.send('saved-file', filePath)
+        if (params) {
+            win.webContents.send('open-file', newFilePath)
+        }
         isSaved = true;
     } else {
         const options = {
@@ -290,7 +292,7 @@ function saveFile() {
     }
 }
 //dialog
-function askFile() {
+function askFile(params) {
     if (isSaved) {
         safeExit = false;
         app.quit();
@@ -306,20 +308,35 @@ function askFile() {
     dialog.showMessageBox(options, function (index) {
         //注：这里index返回值与buttons索引值相同
         if (index == 0) {
-            saveFile();
+            saveFile(params);
         } else if (index == 1) {
-            if(newOpen){
+            if (newOpen) {
                 filePath = null;
                 win.webContents.send('new-file')
                 isSaved = true;
-            }else{
+            } else {
                 safeExit = false;
                 app.quit();
             }
         }
     })
 }
-//open-file 当文件拖拽到图标上时触发
-app.on('open-file', (e, path) => {
-    win.webContents.send('open-file', path)
+//接收渲染进程event 
+ipcMain.on('rendOperation', function (event, arg) {
+    if (arg == "false") {
+        //是否编辑
+        isSaved = false;
+        newOpen = false;
+    }
 });
+//外部拖拽,文件已保存
+ipcMain.on('drag-file', function (event, arg) {
+    filePath = arg;
+})
+//外部拖拽，文件未保存
+ipcMain.on('drag-new-file', function (event, arg) {
+    isSaved = false;
+    newFilePath = arg;
+    askFile(true);
+})
+
