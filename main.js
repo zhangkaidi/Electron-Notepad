@@ -5,9 +5,9 @@ const path = require('path')
 const { app, BrowserWindow, dialog, ipcMain, Menu, MenuItem, Tray } = require('electron');
 
 let filePath; //默认路径
-let newFilePath;
+let newFilePath; //拖拽新的文件路径
+let win;//创建窗口对象
 let isSaved = true; //保存
-let win;
 let safeExit = true;//退出
 let newOpen = false;//打开文件后，新建不保存
 const menu = new Menu();
@@ -187,7 +187,7 @@ function createWindow() {
         }
     })
     //图标的上下文菜单
-    trayIcon = path.join(__dirname, 'tray');
+    trayIcon = path.join(__dirname, './tray');
     appTray = new Tray(path.join(trayIcon, 'app.ico'));
     const contextMenu = Menu.buildFromTemplate(trayMenuTemplate);
     appTray.setToolTip('electron-notepad');
@@ -262,10 +262,13 @@ function openFile() {
         properties: ['openFile']
     }
     dialog.showOpenDialog(options, function (filename) {
-        //注：这里filename 是个数组
-        win.webContents.send('open-file', filename[0])
-        filePath = filename[0];
-        isSaved = true;
+        //注：确认:filename返回一个array，取消:filename返回undefined
+        if(filename){
+            win.webContents.send('open-file', filename[0])
+            filePath = filename[0];
+            isSaved = true;
+        }
+        win.webContents.send('operation','godbclick')
     })
 }
 //保存
@@ -327,6 +330,8 @@ ipcMain.on('rendOperation', function (event, arg) {
         //是否编辑
         isSaved = false;
         newOpen = false;
+    }else if(arg=="dbopenfile"){
+        openFile()
     }
 });
 //外部拖拽,文件已保存
@@ -339,4 +344,3 @@ ipcMain.on('drag-new-file', function (event, arg) {
     newFilePath = arg;
     askFile(true);
 })
-
