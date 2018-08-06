@@ -1,8 +1,8 @@
-// require('electron-reload')(__dirname); //热加载页面,打包不需要
+require('electron-reload')(__dirname); //热加载页面,打包不需要
 // require('electron-debug')();
 
 const path = require('path')
-const { app, BrowserWindow, dialog, ipcMain, Menu, MenuItem, Tray } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog, Tray } = require('electron');
 
 let filePath; //默认路径
 let newFilePath; //拖拽新的文件路径
@@ -10,7 +10,6 @@ let win;//创建窗口对象
 let isSaved = true; //保存
 let safeExit = true;//退出
 let newOpen = false;//打开文件后，新建不保存
-const menu = new Menu();
 
 //应用菜单
 const appMenuTemplate = [
@@ -81,33 +80,9 @@ const appMenuTemplate = [
             }, {
                 type: 'separator'
             }, {
-                label: '查找(F)',
-                accelerator: 'CmdOrCtrl+F',
-                role: ''
-            }, {
-                label: '查找下一个(N)',
-                accelerator: 'F3',
-                role: ''
-            }, {
-                label: '替换(R)',
-                accelerator: 'CmdOrCtrl+H',
-                role: ''
-            }, {
-                label: '转到(G)',
-                accelerator: 'CmdOrCtrl+G',
-                role: ''
-            }, {
-                type: 'separator'
-            }, {
                 label: '全选(A)',
                 accelerator: 'CmdOrCtrl+A',
                 role: 'selectall'
-            }, {
-                label: '时间/日期(D)',
-                accelerator: 'F5',
-                click: () => {
-                    win.webContents.send('operation', 'time')
-                }
             }
         ]
     },
@@ -173,18 +148,18 @@ function createWindow() {
     win.once('ready-to-show', () => {
         win.show()
     })
-    win.on('closed', () => {
-        // 取消引用 window 对象，如果你的应用支持多窗口的话，
-        // 通常会把多个 window 对象存放在一个数组里面，
-        // 与此同时，你应该删除相应的元素。
-        win = null
-    })
     win.on('close', (event) => {
         if (safeExit) {
             //注：这里要选阻止默认关闭事件,再加入自定义事件，否则依然会关闭。
             event.preventDefault();
             askFile();
         }
+    })
+    win.on('closed', () => {
+        // 取消引用 window 对象，如果你的应用支持多窗口的话，
+        // 通常会把多个 window 对象存放在一个数组里面，
+        // 与此同时，你应该删除相应的元素。
+        win = null
     })
     //图标的上下文菜单
     trayIcon = path.join(__dirname, './tray');
@@ -199,44 +174,51 @@ function createWindow() {
     const menu = Menu.buildFromTemplate(appMenuTemplate)
     Menu.setApplicationMenu(menu)
 }
-
 //初始化
 app.on('ready', createWindow)
 //监听app窗口关闭状态
 app.on('window-all-closed', () => {
+    //如何在最后一个窗口被关闭时退出应用
     //mac osx中只有执行command+Q才会退出app，否则保持活动状态
     if (process.platform !== 'darwin') {
         app.quit();
     }
 });
-app.on('activate', () => {
-    //mac osx中再dock图标点击时重新创建一个窗口
-    if (mainWindow === null) {
-        createWindow();
+//接收渲染进程event 
+ipcMain.on('rendOperation', function (event, arg) {
+    if (arg == "false") {
+        //是否编辑
+        isSaved = false;
+        newOpen = false;
+    } else if (arg == "dbopenfile") {
+        openFile()
     }
 });
-//open-file 当文件拖拽到图标上时触发
-app.on('open-file', (e, path) => {
-    win.webContents.send('open-file', path)
-});
-
-
-//右击菜单
-menu.append(new MenuItem({ label: "撤销", role: "undo" }))
-menu.append(new MenuItem({ type: 'separator' }))
-menu.append(new MenuItem({ label: '剪切', role: 'cut' }))
-menu.append(new MenuItem({ label: '复制', role: 'copy' }))
-menu.append(new MenuItem({ label: '粘贴', role: 'paste' }))
-ipcMain.on('show-context-menu', function (event) {
-    menu.popup(win)
+//外部拖拽,文件已保存
+ipcMain.on('drag-file', function (event, arg) {
+    filePath = arg;
 })
-
-
+//外部拖拽，文件未保存
+ipcMain.on('drag-new-file', function (event, arg) {
+    isSaved = false;
+    newFilePath = arg;
+    askFile(true);
+})
 //注：主进程主动发送消息给渲染进行使用 --> win.webContents.send('与渲染进程一致', '参数')
-
 //关于记事本
 function about() {
-    let about = new BrowserWindow({ width: 400, height: 300, icon: "./tray/app.ico", skipTaskbar: true, autoHideMenuBar: true, parent: win, modal: true, show: false })
+    let about = new BrowserWindow({
+        width: 400,
+        height: 300,
+        icon: "./tray/app.ico",
+        skipTaskbar: true,
+        autoHideMenuBar: true,
+        parent: win,
+        modal: true,
+        show: false,
+        minimizable: false,
+        maximizable: false
+    })
     about.loadURL(`file://${__dirname}/about.html`);
     about.once('ready-to-show', () => {
         about.show()
@@ -263,12 +245,12 @@ function openFile() {
     }
     dialog.showOpenDialog(options, function (filename) {
         //注：确认:filename返回一个array，取消:filename返回undefined
-        if(filename){
+        if (filename) {
             win.webContents.send('open-file', filename[0])
             filePath = filename[0];
             isSaved = true;
         }
-        win.webContents.send('operation','godbclick')
+        win.webContents.send('operation', 'godbclick')
     })
 }
 //保存
@@ -294,7 +276,7 @@ function saveFile(params) {
         })
     }
 }
-//dialog
+//询问
 function askFile(params) {
     if (isSaved) {
         safeExit = false;
@@ -324,23 +306,3 @@ function askFile(params) {
         }
     })
 }
-//接收渲染进程event 
-ipcMain.on('rendOperation', function (event, arg) {
-    if (arg == "false") {
-        //是否编辑
-        isSaved = false;
-        newOpen = false;
-    }else if(arg=="dbopenfile"){
-        openFile()
-    }
-});
-//外部拖拽,文件已保存
-ipcMain.on('drag-file', function (event, arg) {
-    filePath = arg;
-})
-//外部拖拽，文件未保存
-ipcMain.on('drag-new-file', function (event, arg) {
-    isSaved = false;
-    newFilePath = arg;
-    askFile(true);
-})

@@ -4,13 +4,6 @@
   "description": "electron-notepad",
   "main": "main.js",
   "build": {
-    "appId": "com.cady.app",
-    "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    },
     "win": {
       "target": [
         "nsis",
@@ -21,7 +14,8 @@
   "scripts": {
     "start": "electron ./",
     "packager": "electron-packager ./ --platform=win32 --arch=x64  --icon=./tray/app.ico --overwrite",
-    "dist": "electron-builder --win --x64"
+    "dist": "electron-builder",
+    "dist-win": "electron-builder --win --x64"
   },
   "repository": "https://github.com/zhangkaidi/electron-notepad",
   "keywords": [
