@@ -1,4 +1,4 @@
-require('electron-reload')(__dirname); //热加载页面,打包不需要
+// require('electron-reload')(__dirname); //热加载页面,打包不需要
 // require('electron-debug')();
 
 const path = require('path')
@@ -239,7 +239,7 @@ function newFile() {
 function openFile() {
     const options = {
         filters: [
-            { name: "Text Files", extensions: ['txt', 'js', 'html', 'md'] },
+            { name: "Text Files", extensions: ['txt', 'js', 'html'] },
             { name: 'All Files', extensions: ['*'] }],
         properties: ['openFile']
     }
@@ -264,7 +264,7 @@ function saveFile(params) {
     } else {
         const options = {
             filters: [
-                { name: "Text Files", extensions: ['txt', 'js', 'html', 'md'] },
+                { name: "Text Files", extensions: ['txt', 'js', 'html']},
                 { name: 'All Files', extensions: ['*'] }
             ],
             properties: ['openFile']

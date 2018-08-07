@@ -28,7 +28,7 @@
   "author": "cady",
   "license": "CC0-1.0",
   "devDependencies": {
-    "electron": "^2.0.5",
+    "electron": "^2.0.6",
     "electron-builder": "^20.26.1",
     "electron-packager": "^12.1.0",
     "electron-reload": "^1.2.5"

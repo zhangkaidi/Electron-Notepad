@@ -51,7 +51,7 @@ ipcR.on('open-file', function (event, path) {
     const text = readText(path);
     editor.value = text;
     document.title = "记事本 - " + path;
-})
+}) 
 //保存
 ipcR.on('saved-file', function (event, path) {
     isChange = true;
@@ -67,20 +67,14 @@ function writeText(file, text) {
     fs.writeFileSync(file, text);
 }
 //双击打开文件
-editor.ondblclick = function () {
+editor.addEventListener('dblclick',function(){
     if (dbclick) {
         ipcR.send('rendOperation', 'dbopenfile')
     }
     dbclick = false;
-}
-//支持外部拖拽
-editor.ondragover = function (event) {
-    return false;
-};
-editor.ondragleave = editor.ondragend = function () {
-    return false;
-};
-editor.ondrop = function (e) {
+})
+//外部拖拽
+editor.addEventListener('drop',function(e){
     e.preventDefault();
     var file = e.dataTransfer.files[0];
     if (isChange) {
@@ -93,4 +87,4 @@ editor.ondrop = function (e) {
         ipcR.send('drag-new-file', file.path)
     }
     isChange = true;
-};
+})
