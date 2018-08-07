@@ -28,7 +28,7 @@
 * [工具](https://electronjs.org/docs/tutorial/application-packaging
 )
 
-### 总结
+## 总结
 * 使用showOpenDialog回调函数中的参数是个数组
 * 使用showMessageBox中cancelId与buttons索引值的相对应,回调函数中的参数值与buttons的索引值相对应
 * 主进程主动发送消息给渲染进行,使用window.webContents.send(event, '参数')
